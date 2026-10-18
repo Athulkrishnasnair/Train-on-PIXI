@@ -11,7 +11,7 @@ export function addMountains(app) {
 
     //  Animate
     app.ticker.add((time) => {
-    const dx = time.deltaTime * 50;
+    const dx = time.deltaTime * 1;
 
     group1.x -= dx;
     group2.x -= dx;

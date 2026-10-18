@@ -2,6 +2,8 @@ import { Application } from 'pixi.js';
 import { addStars } from './stars.js';
 import { addMoon } from './moon.js';
 import { addMountains } from './mountains.js';
+import { addTrees } from './trees.js';
+import { addGround } from './ground.js';
 
 const app = new Application();
 
@@ -24,5 +26,11 @@ const app = new Application();
 
   // Add Mountains
   addMountains(app);
+
+  // Add trees
+  addTrees(app);
+
+  // Add Ground
+  addGround(app);
 })()
 
