@@ -1,60 +1,85 @@
-import {Container, Graphics } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
+
+// The engine's large wheel defines the shared rail/contact height:
+// its center is 5 px below the train origin and its radius is 55 px,
+// so its bottom is at y = 5 + 55 = 60.
+const BIG_WHEEL_RADIUS = 55;
+const SMALL_WHEEL_RADIUS = 39;
+const BIG_WHEEL_OFFSET_Y = 5;
+const WHEEL_GROUND_Y = BIG_WHEEL_OFFSET_Y + BIG_WHEEL_RADIUS;
 
 export function addTrain(app, container) {
-    const head = createTrainHead(app);
+  const head = createTrainHead(app);
+  const carriage = createTrainCarriage(app);
 
-    // Add head to the train container
-    container.addChild(head);
+  // Place the carriage to the left of the engine. Its measured width includes
+  // the trim and wheels, so its right edge is aligned near the engine's origin.
+  carriage.x = -carriage.width;
+  container.addChild(head, carriage);
+  app.stage.addChild(container);
 
-    // Add tain container to stage
-    app.stage.addChild(container);
+  const scale = 0.75;
+  container.scale.set(scale);
 
-    const scale = 0.75;
+  // Center the engine (not the longer carriage) horizontally on the screen.
+  container.x = app.screen.width / 2 - head.width / 2;
 
-    // Adjust scaling of the train
-    container.scale.set(scale);
+  // Pixi's y axis points down. This places the train's origin so the large
+  // engine wheel's bottom (60 local px, scaled by 0.75) sits just above the
+  // bottom edge of the screen, alongside the track.
+  let elapsed = 0;
+  const shakeDistance = 3;
+  const baseY = app.screen.height - 35 - BIG_WHEEL_RADIUS * scale;
+  const speed = 0.5;
+  container.y = baseY;
 
-     // Position the train, taking into account the variety of screen width.
-  // To keep the train as the main focus, the train is offset slightly to the left of the screen center.
-    
-    container.x = app.screen.width / 2 -head.width / 2;
-    container.y = app.screen.height - 35 -55 * scale;
+  // A sine wave oscillates smoothly between -1 and 1. Multiplying
+  // (sin(t) * 0.5 + 0.5) by shakeDistance instead maps it to 0..3 px.
+  app.ticker.add((time) => {
+    elapsed += time.deltaTime;
+    const offset = (Math.sin(elapsed * 0.5 * speed) * 0.5 + 0.5) * shakeDistance;
+    container.y = baseY + offset;
+  });
 }
 
 function createTrainHead(app) {
-  // Create a container to hold all the train head parts.
+  // Each train part is positioned relative to this local origin. Negative y
+  // values place the body above the wheel/track baseline at y = 0.
   const container = new Container();
 
-  // Define the dimensions of the head front.
+  // Front: the rounded nose is sized with a half-circle radius based on height.
   const frontHeight = 100;
   const frontWidth = 140;
   const frontRadius = frontHeight / 2;
 
-  // Define the dimensions of the cabin.
+  // Cabin dimensions and corner radius.
   const cabinHeight = 200;
   const cabinWidth = 150;
   const cabinRadius = 15;
 
-  // Define the dimensions of the chimney.
+  // Chimney dimensions. The top is wider than its base, so the difference is
+  // split evenly on both sides: (top width - base width) / 2.
   const chimneyBaseWidth = 30;
   const chimneyTopWidth = 50;
   const chimneyHeight = 70;
   const chimneyDomeHeight = 25;
   const chimneyTopOffset = (chimneyTopWidth - chimneyBaseWidth) / 2;
+  // Start at the nose's right side, backing off its rounded end and chimney base.
   const chimneyStartX = cabinWidth + frontWidth - frontRadius - chimneyBaseWidth;
   const chimneyStartY = -frontHeight;
 
-  // Define the dimensions of the roof.
+  // The roof extends past each side of the cabin by half of roofExcess.
   const roofHeight = 25;
   const roofExcess = 20;
 
-  // Define the dimensions of the door.
+  // The door is 70% of the cabin dimensions and centered horizontally.
   const doorWidth = cabinWidth * 0.7;
   const doorHeight = cabinHeight * 0.7;
   const doorStartX = (cabinWidth - doorWidth) * 0.5;
+  // Center the door vertically in the cabin, whose top is at -cabinHeight.
   const doorStartY = -(cabinHeight - doorHeight) * 0.5 - doorHeight;
 
-  // Define the dimensions of the window.
+  // The window is sized relative to the door and centered within it.
   const windowWidth = doorWidth * 0.8;
   const windowHeight = doorHeight * 0.4;
   const offset = (doorWidth - windowWidth) / 2;
@@ -98,61 +123,130 @@ function createTrainHead(app) {
     .roundRect(doorStartX + offset, doorStartY + offset, windowWidth, windowHeight, 10)
     .fill({ color: 0x848484 });
 
-  // Define the dimensions of the wheels.
-  const bigWheelRadius = 55;
-  const smallWheelRadius = 35;
-  const wheelGap = 5;
-  const wheelOffsetY = 5;
+  // The large rear wheel and two smaller wheels share a common bottom height.
+  const wheelGap = 15;
 
-  // Create all the wheels.
-  const backWheel = createTrainWheel(bigWheelRadius);
-  const midWheel = createTrainWheel(smallWheelRadius);
-  const frontWheel = createTrainWheel(smallWheelRadius);
+  const backWheel = createTrainWheel(BIG_WHEEL_RADIUS);
+  const midWheel = createTrainWheel(SMALL_WHEEL_RADIUS);
+  const frontWheel = createTrainWheel(SMALL_WHEEL_RADIUS);
 
-  // Position the wheels.
-  backWheel.x = bigWheelRadius;
-  backWheel.y = wheelOffsetY;
-  midWheel.x = backWheel.x + bigWheelRadius + smallWheelRadius + wheelGap;
-  midWheel.y = backWheel.y + bigWheelRadius - smallWheelRadius;
-  frontWheel.x = midWheel.x + smallWheelRadius * 2 + wheelGap;
+  // The large wheel center is offset 5 px below the origin. The small-wheel
+  // center is raised by the radius difference, keeping their bottoms aligned:
+  // small center y = big center y + big radius - small radius = 5 + 55 - 39 = 21.
+  backWheel.x = BIG_WHEEL_RADIUS;
+  backWheel.y = BIG_WHEEL_OFFSET_Y;
+  midWheel.x = backWheel.x + BIG_WHEEL_RADIUS + SMALL_WHEEL_RADIUS + wheelGap;
+  midWheel.y = WHEEL_GROUND_Y - SMALL_WHEEL_RADIUS;
+  frontWheel.x = midWheel.x + SMALL_WHEEL_RADIUS * 2 + wheelGap;
   frontWheel.y = midWheel.y;
 
-  // Add all the parts to the container.
   container.addChild(graphics, backWheel, midWheel, frontWheel);
 
-  // Animate the wheels - making the big wheel rotate proportionally slower than the small wheels.
+  // For a rolling wheel, angular speed is inversely proportional to radius
+  // (angular speed = linear speed / radius). Thus the larger wheel turns slower.
   app.ticker.add((time) => {
     const dr = time.deltaTime * 0.15;
 
-    backWheel.rotation += dr * (smallWheelRadius / bigWheelRadius);
+    backWheel.rotation += dr * (SMALL_WHEEL_RADIUS / BIG_WHEEL_RADIUS);
     midWheel.rotation += dr;
     frontWheel.rotation += dr;
   });
 
   return container;
 }
-function createTrainWheel(radius) {
 
-    // Props of wheels
-    const strokeThickness = radius / 3;
-    const innerRadius = radius - strokeThickness;
 
-    return (
-        new Graphics()
-        .circle(0, 0, radius)
-        // Draw wheel
-        .fill({
-            color: 0x848484
-        })
-        // Draw tyre
-        .stroke({
-            width: strokeThickness,
-            alignment: 1,
-            color: 0x121212,
-        })
-         // Draw the spokes
-        .rect(-strokeThickness / 2, -innerRadius, strokeThickness, innerRadius * 2)
-        .rect(-innerRadius, -strokeThickness / 2, innerRadius * 2, strokeThickness)
-        .fill({ color: 0x4f4f4f })
+// Build one passenger carriage. Its local y = 0 line is the bottom edge of the
+// body; wheel centers sit below that line so the body rests on the same wheels
+// baseline as the engine.
+function createTrainCarriage(app) {
+  const container = new Container();
+
+  // Body dimensions. Keep the body above y = 0; Pixi's positive y direction is down.
+  const bodyHeight = 125;
+  const bodyWidth = 200;
+  const bodyRadius = 15;
+  // The top trim overhangs the body by 10 px on each side.
+  const edgeHeight = 25;
+  const edgeExcess = 20;
+  // Two small dark bars are decorative carriage fittings.
+  const connectorWidth = 30;
+  const connectorHeight = 10;
+  const connectorGap = 10;
+  const connectorOffsetY = 20;
+
+  const graphics = new Graphics();
+
+  // Body spans y = -bodyHeight..0, using roundRect because rect() has no
+  // corner-radius parameter. The original y = -10 body extended downward and
+  // covered the wheels; ending it at y = 0 aligns it with the engine body.
+  graphics
+    .roundRect(edgeExcess / 2, -bodyHeight, bodyWidth, bodyHeight, bodyRadius)
+    .fill({ color: 0x725f19 });
+
+  // The top trim caps the body. Its y is the body's top and its width includes
+  // both overhangs: bodyWidth + edgeExcess.
+  graphics
+    .rect(0, -bodyHeight, bodyWidth + edgeExcess, edgeHeight)
+    .fill({ color: 0x52431c });
+
+  // Decorative fittings are placed near the left side of the carriage.
+  graphics
+    .rect(connectorWidth + edgeExcess / 2, -connectorOffsetY - connectorHeight, connectorWidth, connectorHeight)
+    .rect(
+      connectorWidth + edgeExcess / 2,
+      -connectorOffsetY - connectorHeight * 2 - connectorGap,
+      connectorWidth,
+      connectorHeight,
     )
+    .fill({ color: 0x121212 });
+
+  const wheelRadius = SMALL_WHEEL_RADIUS;
+  const wheelGap = 40;
+  // Center the pair on the body, then move each center out by radius + half
+  // the desired gap. This leaves wheelGap px between the wheel circumferences.
+  const centerX = (bodyWidth + edgeExcess) / 2;
+  const wheelOffsetX = wheelRadius + wheelGap / 2;
+
+  const backWheel = createTrainWheel(wheelRadius);
+  const frontWheel = createTrainWheel(wheelRadius);
+
+  backWheel.x = centerX - wheelOffsetX;
+  frontWheel.x = centerX + wheelOffsetX;
+  // Wheel bottom = centerY + radius = WHEEL_GROUND_Y (60), same as engine.
+  backWheel.y = frontWheel.y = WHEEL_GROUND_Y - wheelRadius;
+
+  container.addChild(graphics, backWheel, frontWheel);
+
+  // Both carriage wheels use the same angular speed because they have equal radii.
+  app.ticker.add((time) => {
+    const dt = time.deltaTime * 0.15;
+
+    backWheel.rotation += dt;
+    frontWheel.rotation += dt;
+  });
+
+
+  return container;
+}
+
+
+
+function createTrainWheel(radius) {
+  // The tyre stroke is one-third of the radius, leaving the rest for the hub
+  // and spokes. The spokes are drawn around (0, 0), the wheel's rotation pivot.
+  const strokeThickness = radius / 3;
+  const innerRadius = radius - strokeThickness;
+
+  return new Graphics()
+    .circle(0, 0, radius)
+    .fill({ color: 0x848484 })
+    .stroke({
+      width: strokeThickness,
+      alignment: 1,
+      color: 0x121212,
+    })
+    .rect(-strokeThickness / 2, -innerRadius, strokeThickness, innerRadius * 2)
+    .rect(-innerRadius, -strokeThickness / 2, innerRadius * 2, strokeThickness)
+    .fill({ color: 0x4f4f4f });
 }

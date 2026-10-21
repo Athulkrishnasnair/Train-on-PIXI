@@ -5,39 +5,36 @@ import { addMountains } from './mountains.js';
 import { addTrees } from './trees.js';
 import { addGround } from './ground.js';
 import { addTrain } from './train.js';
+import { addSmokes } from './addSmokes.js';
 
+// Pixi's Application manages the canvas, rendering stage, screen size, and
+// animation ticker used by the scene.
 const app = new Application();
 
-// Create a contaioner to contain all train parts
+// Keep the locomotive and its smoke together so effects can follow the train.
 const trainContainer = new Container();
 
-// Asynchrous IIFE
+// Application initialization is asynchronous, so wait until Pixi is ready
+// before attaching its canvas or creating scene objects.
 (async () => {
-  // Init app
   await app.init({
     background: '#021f4b',
+    // Match the Pixi canvas dimensions to the browser window.
     resizeTo: window,
   });
 
-  // Append
+  // The canvas is Pixi's visible drawing surface.
   document.body.appendChild(app.canvas);
 
-  // Call stars function
+  // Add the background first, then scenery and ground, so later objects draw
+  // in front of earlier ones.
   addStars(app);
-
-  // Call moon function
   addMoon(app);
-
-  // Add Mountains
   addMountains(app);
-
-  // Add trees
   addTrees(app);
-
-  // Add Ground
   addGround(app);
 
-  // Add Train
-  addTrain(app, trainContainer)
-})()
-
+  // The train is added after the scenery so it appears in the foreground.
+  addTrain(app, trainContainer);
+  addSmokes(app, trainContainer);
+})();
